@@ -1,11 +1,30 @@
 (function() {
     let loaded = false;
 
+    async function ensureScramjetDB() {
+        try {
+            const req = indexedDB.open('$scramjet');
+            await new Promise((resolve, reject) => {
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
+            return true;
+        } catch (err) {
+            console.warn('Scramjet DB error, clearing and reloading...');
+            indexedDB.deleteDatabase('$scramjet');
+            ['scramjet-data', 'scrambase', 'ScramjetData'].forEach(name => {
+                try { indexedDB.deleteDatabase(name); } catch {}
+            });
+            return false;
+        }
+    }
+
     async function init() {
         if (loaded) return;
         loaded = true;
 
-        // Service Worker registration
+        await ensureScramjetDB();
+
         if ('serviceWorker' in navigator) {
             try {
                 const basePath = window.utils.getBasePath();
@@ -32,25 +51,43 @@
                 setTimeout(sendConfig, 500);
                 setTimeout(sendConfig, 1500);
 
+                try {
+                    const connection = new BareMux.BareMuxConnection(basePath + "bareworker.js");
+                    await connection.setTransport(
+                        "https://cdn.jsdelivr.net/npm/@mercuryworkshop/epoxy-transport@2.1.28/dist/index.mjs",
+                        [{ wisp: wispUrl }]
+                    );
+                    const port = await connection.getInnerPort();
+                    const sw = reg.active || navigator.serviceWorker.controller;
+                    if (sw) {
+                        sw.postMessage({ type: 'baremux-port', port: port }, [port]);
+                        console.log('Port sent to SW');
+                    }
+                } catch (err) {
+                    console.warn('BareMux connection error:', err);
+                    window.utils.notify('warning', 'Proxy Connection', 'Could not connect to proxy. Some features may not work.');
+                }
+
                 reg.update();
             } catch (err) {
                 console.warn('SW registration:', err);
             }
         }
 
-        // Initialize Scramjet (page-side controller)
         try {
             const scramjet = await window.proxy.getSharedScramjet();
             window.tabs.init(scramjet);
         } catch (err) {
-            console.warn('Scramjet init error:', err);
-            window.utils.notify('error', 'Scramjet Error', 'Failed to initialize. Refreshing may help.');
+            console.error('Scramjet init error:', err);
+            window.utils.notify('error', 'Proxy Error', 'Scramjet failed to initialize. Some features may not work.');
+
+            window.tabs.create(true);
         }
 
-        // Create the first tab
-        window.tabs.create(true);
+        if (!window.tabs.getActive()) {
+            window.tabs.create(true);
+        }
 
-        // UI bindings
         document.getElementById('backBtn').onclick = () => {
             const tab = window.tabs.getActive();
             if (tab) tab.frame.back();
@@ -141,7 +178,6 @@
             }
         });
 
-        // Hide loading screen
         const ls = document.getElementById('loading-screen');
         ls.classList.add('hidden');
         const app = document.getElementById('app');
