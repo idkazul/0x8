@@ -2,6 +2,12 @@
 
 <img src="imgs/logo.png" alt="0x8" width="300">
 
+![Archived](https://img.shields.io/badge/status-archived-orange.svg)
+
+> ⚠️ **Archived**
+>
+> this is broken 
+
 **0x8** is your simple web proxy service!
 
 This is a simple web proxy I made within a day. It provides the necessary features such as:
@@ -12,4 +18,4 @@ This is a simple web proxy I made within a day. It provides the necessary featur
 
 # Is it good?
 
-Maybe for short term use, yeah, but **don't depend on this**. Use other good proxies. This one works but not 100% of the time. There is errors every now and then.
+Maybe for short term use, yeah, but **don't depend on this**. Use other good proxies. This one works but not 100% of the time. There are errors every now and then.
