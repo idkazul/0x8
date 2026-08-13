@@ -1,5 +1,88 @@
 (function() {
   let loaded = false;
+  let bareConnection = null;
+  let reconnectAttempts = 0;
+  const MAX_RECONNECT_ATTEMPTS = 5;
+
+  async function createBareMuxConnection(basePath, wispUrl) {
+    try {
+      console.log('Creating BareMux connection...');
+      const connection = new BareMux.BareMuxConnection(basePath + "bareworker.js");
+      await connection.setTransport(
+        "https://cdn.jsdelivr.net/npm/@mercuryworkshop/epoxy-transport@2.1.28/dist/index.mjs",
+        [{ wisp: wispUrl }]
+      );
+      console.log('BareMux transport set.');
+      const port = await connection.getInnerPort();
+      console.log('Port obtained.');
+      return { connection, port };
+    } catch (err) {
+      console.error('BareMux connection creation failed:', err);
+      throw err;
+    }
+  }
+
+  async function sendPortToSW(port) {
+    const reg = await navigator.serviceWorker.ready;
+    const sw = reg.active || navigator.serviceWorker.controller;
+    if (!sw) {
+      console.warn('No SW controller to send port');
+      return;
+    }
+    sw.postMessage({ type: 'baremux-port', port: port }, [port]);
+    console.log('Port sent to SW');
+  }
+
+  async function ensureBareMuxConnection(basePath, wispUrl) {
+    try {
+      const { connection, port } = await createBareMuxConnection(basePath, wispUrl);
+      bareConnection = connection;
+      reconnectAttempts = 0;
+      await sendPortToSW(port);
+
+      window._barePort = port;
+
+      if (!window._heartbeatInterval) {
+        window._heartbeatInterval = setInterval(async () => {
+          try {
+            await bareConnection.worker.sendMessage({ type: 'ping' });
+
+            reconnectAttempts = 0;
+          } catch (err) {
+            console.warn('Heartbeat ping failed, attempting reconnect...');
+            await reconnectBareMux(basePath, wispUrl);
+          }
+        }, 25000);
+      }
+
+      return connection;
+    } catch (err) {
+      console.error('ensureBareMuxConnection failed:', err);
+      throw err;
+    }
+  }
+
+  async function reconnectBareMux(basePath, wispUrl) {
+    if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+      console.error('Max reconnect attempts reached.');
+      window.utils.notify('error', 'Proxy Error', 'Could not reconnect to proxy. Please refresh.');
+      return;
+    }
+    reconnectAttempts++;
+    console.log(`Reconnecting BareMux (attempt ${reconnectAttempts})...`);
+    try {
+      const { connection, port } = await createBareMuxConnection(basePath, wispUrl);
+      bareConnection = connection;
+      await sendPortToSW(port);
+      window._barePort = port;
+      reconnectAttempts = 0;
+      window.utils.notify('info', 'Proxy Reconnected', 'Proxy connection restored.');
+    } catch (err) {
+      console.error('Reconnection failed:', err);
+
+      setTimeout(() => reconnectBareMux(basePath, wispUrl), 2000);
+    }
+  }
 
   async function init() {
     if (loaded) return;
@@ -32,24 +115,7 @@
         setTimeout(sendConfig, 1500);
 
         try {
-          console.log('Creating BareMux connection in page...');
-          const connection = new BareMux.BareMuxConnection(basePath + "bareworker.js");
-          console.log('Setting transport...');
-          await connection.setTransport(
-            "https://cdn.jsdelivr.net/npm/@mercuryworkshop/epoxy-transport@2.1.28/dist/index.mjs",
-            [{ wisp: wispUrl }]
-          );
-          console.log('Getting inner port...');
-          const port = await connection.getInnerPort();
-          console.log('Port obtained:', port);
-
-          const sw = reg.active || navigator.serviceWorker.controller;
-          if (sw) {
-            sw.postMessage({ type: 'baremux-port', port: port }, [port]);
-            console.log('Port sent to SW');
-          } else {
-            console.warn('No SW controller to send port');
-          }
+          await ensureBareMuxConnection(basePath, wispUrl);
         } catch (err) {
           console.error('BareMux connection error:', err);
           window.utils.notify('error', 'Proxy Connection Error', 'Could not connect to proxy. Some features may not work.');
@@ -167,7 +233,7 @@
     app.style.display = 'flex';
     void app.offsetWidth;
     app.classList.add('visible');
-    window.utils.notify('success', 'Welcome.', 'Loaded!');
+    window.utils.notify('success', 'Welcome to 0x8', 'Loaded!');
   }
 
   window.addEventListener('unhandledrejection', (e) => {
