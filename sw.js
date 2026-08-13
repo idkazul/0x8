@@ -92,7 +92,6 @@ let connectionReady = false;
 function setClientFromPort(port) {
     if (!port) return;
     try {
-
         const BareClient = BareMux.BareClient;
         bareClient = new BareClient(port);
         scramjet.client = bareClient;
@@ -140,13 +139,12 @@ self.addEventListener("fetch", (event) => {
             return scramjet.fetch(event);
         }
 
-        if (!connectionReady) {
-            console.warn('SW: BareMux client not ready, fallback to direct fetch');
-
-            return fetch(event.request);
+        try {
+            return await fetch(event.request);
+        } catch (err) {
+            console.warn('Fallback fetch failed:', err);
+            return new Response('Network error', { status: 502 });
         }
-
-        return fetch(event.request);
     })());
 });
 
@@ -161,7 +159,7 @@ scramjet.addEventListener("request", async (e) => {
         }
 
         try {
-            return await bareClient.fetch(e.url, {
+            const response = await bareClient.fetch(e.url, {
                 method: e.method,
                 body: e.body,
                 headers: e.requestHeaders,
@@ -171,8 +169,13 @@ scramjet.addEventListener("request", async (e) => {
                 redirect: "manual",
                 duplex: "half",
             });
+            return response;
         } catch (err) {
             console.error("Scramjet fetch error:", err);
+
+            if (err.message?.includes('port') || err.message?.includes('timeout')) {
+                return new Response("Proxy connection lost", { status: 503 });
+            }
             return new Response("Proxy error: " + err.message, { status: 502 });
         }
     })();
