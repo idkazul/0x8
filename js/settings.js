@@ -1,8 +1,8 @@
 (function() {
-  const DEFAULT_WISP = "wss://truffled.lol/wisp/";
+  const DEFAULT_WISP = "wss://wisp.mercurywork.shop";
   const WISP_SERVERS = [
-    { name: "Server 1", url: "wss://truffled.lol/wisp/" },
-    { name: "Server 2", url: "wss://wisp.mercurywork.shop" }
+    { name: "Server 1", url: "wss://wisp.mercurywork.shop" },
+    { name: "Server 2", url: "wss://truffled.lol/wisp/" }
   ];
 
   window.settings = {};
