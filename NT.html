@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>New Tab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg-glass: rgba(255, 255, 255, 0.04);
+      --border-glass: rgba(255, 255, 255, 0.06);
+      --text-primary: #f0f0f0;
+      --text-secondary: #a0a0a0;
+      --text-muted: #5a5a5a;
+      --radius: 16px;
+      --radius-sm: 10px;
+      --font: 'Inter', system-ui, sans-serif;
+      --transition: 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+
+    body.light-mode {
+      --bg-glass: rgba(0, 0, 0, 0.04);
+      --border-glass: rgba(0, 0, 0, 0.06);
+      --text-primary: #161616;
+      --text-secondary: #3a3a3a;
+      --text-muted: #7a7a7a;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: var(--font);
+      background: transparent;
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+    }
+
+    .newtab {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      width: 100%;
+      padding: 40px 24px;
+      gap: 32px;
+      background: transparent;
+    }
+
+    .search-box {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--bg-glass);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--radius);
+      padding: 6px 6px 6px 18px;
+      width: 100%;
+      max-width: 520px;
+      transition: var(--transition);
+      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
+      position: relative;
+    }
+    .search-box::before {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      border-radius: var(--radius);
+      padding: 1px;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.06));
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+    }
+    .search-box:focus-within {
+      border-color: rgba(255, 255, 255, 0.15);
+      box-shadow: 0 8px 48px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.03);
+      transform: translateY(-1px);
+    }
+    body.light-mode .search-box:focus-within {
+      border-color: rgba(0, 0, 0, 0.15);
+      box-shadow: 0 8px 48px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.02);
+    }
+
+    .search-box i {
+      color: var(--text-muted);
+      font-size: 15px;
+      flex-shrink: 0;
+      opacity: 0.6;
+      transition: var(--transition);
+    }
+    .search-box:focus-within i {
+      opacity: 1;
+      color: var(--text-secondary);
+    }
+
+    .search-box input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text-primary);
+      font-size: 15px;
+      font-family: var(--font);
+      font-weight: 400;
+      padding: 12px 0;
+      min-width: 0;
+      letter-spacing: 0.2px;
+    }
+    .search-box input::placeholder {
+      color: var(--text-muted);
+      font-weight: 350;
+      letter-spacing: 0.2px;
+      opacity: 0.7;
+    }
+
+    .search-box select {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--radius-sm);
+      color: var(--text-secondary);
+      padding: 6px 10px;
+      font-size: 12px;
+      font-family: var(--font);
+      cursor: pointer;
+      outline: none;
+      transition: var(--transition);
+      flex-shrink: 0;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+    .search-box select:hover {
+      background: rgba(255, 255, 255, 0.10);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+    .search-box select option {
+      background: #1a1a1a;
+      color: var(--text-primary);
+    }
+    body.light-mode .search-box select {
+      background: rgba(0, 0, 0, 0.06);
+    }
+    body.light-mode .search-box select:hover {
+      background: rgba(0, 0, 0, 0.10);
+    }
+    body.light-mode .search-box select option {
+      background: #fff;
+      color: var(--text-primary);
+    }
+
+    .shortcuts {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 14px;
+      max-width: 520px;
+      width: 100%;
+    }
+
+    .shortcut {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+      cursor: pointer;
+      transition: var(--transition);
+      border-radius: var(--radius-sm);
+      padding: 8px 4px;
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-family: var(--font);
+    }
+    .shortcut:hover {
+      transform: translateY(-3px);
+    }
+
+    .shortcut-icon {
+      width: 52px;
+      height: 52px;
+      background: var(--bg-glass);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: var(--transition);
+    }
+    .shortcut:hover .shortcut-icon {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.15);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+    body.light-mode .shortcut:hover .shortcut-icon {
+      background: rgba(0, 0, 0, 0.06);
+      border-color: rgba(0, 0, 0, 0.15);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+    }
+
+    .shortcut-icon img {
+      width: 22px;
+      height: 22px;
+      filter: brightness(0) invert(0.7);
+      transition: var(--transition);
+    }
+    .shortcut:hover .shortcut-icon img {
+      filter: brightness(0) invert(1);
+    }
+    body.light-mode .shortcut-icon img {
+      filter: brightness(0) invert(0.3);
+    }
+    body.light-mode .shortcut:hover .shortcut-icon img {
+      filter: brightness(0) invert(0);
+    }
+
+    .shortcut-icon i {
+      font-size: 20px;
+      color: var(--text-muted);
+      transition: var(--transition);
+    }
+    .shortcut:hover .shortcut-icon i {
+      color: var(--text-primary);
+    }
+    body.light-mode .shortcut-icon i {
+      color: var(--text-muted);
+    }
+    body.light-mode .shortcut:hover .shortcut-icon i {
+      color: var(--text-primary);
+    }
+
+    .shortcut-label {
+      font-size: 11px;
+      font-weight: 450;
+      color: var(--text-muted);
+      text-align: center;
+      max-width: 60px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      transition: var(--transition);
+      letter-spacing: 0.2px;
+    }
+    .shortcut:hover .shortcut-label {
+      color: var(--text-secondary);
+    }
+
+    .shortcut-add .shortcut-icon {
+      border-style: dashed;
+      border-color: var(--border-glass);
+      background: transparent;
+    }
+    .shortcut-add:hover .shortcut-icon {
+      background: var(--bg-glass);
+      border-color: var(--text-muted);
+      border-style: solid;
+    }
+    .shortcut-add .shortcut-icon i {
+      font-size: 18px;
+      color: var(--text-muted);
+    }
+    .shortcut-add:hover .shortcut-icon i {
+      color: var(--text-secondary);
+    }
+
+    .shortcut.custom .shortcut-icon i {
+      font-size: 18px;
+      color: var(--text-muted);
+    }
+    .shortcut.custom:hover .shortcut-icon i {
+      color: var(--text-primary);
+    }
+
+    @media (max-width: 600px) {
+      .search-box {
+        padding: 4px 4px 4px 14px;
+        border-radius: 14px;
+      }
+      .search-box input {
+        font-size: 14px;
+        padding: 10px 0;
+      }
+      .search-box select {
+        font-size: 11px;
+        padding: 4px 8px;
+      }
+      .shortcuts {
+        gap: 10px;
+        max-width: 100%;
+      }
+      .shortcut-icon {
+        width: 44px;
+        height: 44px;
+      }
+      .shortcut-icon img {
+        width: 18px;
+        height: 18px;
+      }
+      .shortcut-icon i {
+        font-size: 17px;
+      }
+      .shortcut-label {
+        font-size: 10px;
+        max-width: 50px;
+      }
+      .newtab {
+        padding: 24px 16px;
+        gap: 24px;
+      }
+    }
+
+    @media (max-width: 400px) {
+      .shortcuts {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+      }
+      .shortcut-icon {
+        width: 40px;
+        height: 40px;
+      }
+      .search-box input {
+        font-size: 13px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="newtab">
+    <form class="search-box" id="searchForm">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input type="text" id="searchInput" placeholder="Search or enter URL…" autocomplete="off" />
+      <select id="engine">
+        <option value="https://search.brave.com/search?q=">Brave</option>
+        <option value="https://duckduckgo.com/?q=">DuckDuckGo</option>
+        <option value="https://www.google.com/search?q=">Google</option>
+      </select>
+    </form>
+
+    <div class="shortcuts" id="shortcuts">
+      <a class="shortcut" data-url="https://github.com">
+        <div class="shortcut-icon"><img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/github.svg" alt="" /></div>
+        <span class="shortcut-label">GitHub</span>
+      </a>
+      <a class="shortcut" data-url="https://discord.com">
+        <div class="shortcut-icon"><img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/discord.svg" alt="" /></div>
+        <span class="shortcut-label">Discord</span>
+      </a>
+      <a class="shortcut" data-url="https://spotify.com">
+        <div class="shortcut-icon"><img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/spotify.svg" alt="" /></div>
+        <span class="shortcut-label">Spotify</span>
+      </a>
+      <div class="shortcut shortcut-add" id="addShortcut">
+        <div class="shortcut-icon"><i class="fa-solid fa-plus"></i></div>
+        <span class="shortcut-label">Add</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      'use strict';
+
+      const $ = s => document.querySelector(s);
+      const nav = url => {
+        window.parent?.postMessage({ type: 'navigate', url }, '*');
+      };
+
+      $('#searchForm').onsubmit = e => {
+        e.preventDefault();
+        const q = $('#searchInput').value.trim();
+        if (q) nav($('#engine').value + encodeURIComponent(q));
+      };
+
+      $('#shortcuts').onclick = e => {
+        const shortcut = e.target.closest('.shortcut[data-url]');
+        const addBtn = e.target.closest('#addShortcut');
+
+        if (shortcut) {
+          e.preventDefault();
+          nav(shortcut.dataset.url);
+        } else if (addBtn) {
+          window.parent?.postMessage({ type: 'openShortcutModal' }, '*');
+        }
+      };
+
+      function renderCustom() {
+        document.querySelectorAll('.shortcut.custom').forEach(e => e.remove());
+        const shortcuts = JSON.parse(localStorage.getItem('shortcuts') || '[]');
+        const addBtn = $('#addShortcut');
+
+        shortcuts.forEach(s => {
+          const div = document.createElement('div');
+          div.className = 'shortcut custom';
+          div.dataset.url = s.url;
+          const iconUrl = `https://www.google.com/s2/favicons?domain=${new URL(s.url).hostname}&sz=32`;
+          div.innerHTML = `
+            <div class="shortcut-icon"><img src="${iconUrl}" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=\\'fa-solid fa-link\\'></i>'" /></div>
+            <span class="shortcut-label">${s.name}</span>
+          `;
+          addBtn.before(div);
+        });
+      }
+
+      renderCustom();
+
+      setTimeout(() => $('#searchInput').focus(), 100);
+
+      window.addEventListener('message', (e) => {
+        if (e.data?.type === 'themeChange') {
+          document.body.classList.toggle('light-mode', e.data.isLight);
+        }
+        if (e.data?.type === 'shortcutAdded') {
+          renderCustom();
+        }
+      });
+
+      window.parent?.postMessage({ type: 'getTheme' }, '*');
+    })();
+  </script>
+</body>
+</html>
