@@ -9,46 +9,60 @@
     localStorage.setItem("proxServer", DEFAULT_WISP);
   }
 
-  let sharedScramjet = null;
+  window.utils = window.utils || {};
+  window.proxy = window.proxy || {};
 
-  window.proxy = {};
+  let sharedScramjet = null;
 
   window.proxy.getSharedScramjet = async function() {
     if (sharedScramjet) return sharedScramjet;
-    
+
     const basePath = window.utils.getBasePath();
-    
-    if (typeof $scramjetLoadController === 'undefined') {
-      await new Promise(r => {
+
+    if (typeof $scramjetLoadController === "undefined") {
+      await new Promise((resolve, reject) => {
+        const started = Date.now();
+
         const check = () => {
-          if (typeof $scramjetLoadController !== 'undefined') {
-            r();
-          } else {
-            setTimeout(check, 100);
+          if (typeof $scramjetLoadController !== "undefined") {
+            resolve();
+            return;
           }
+
+          if (Date.now() - started > 15000) {
+            reject(new Error("Scramjet controller failed to load."));
+            return;
+          }
+
+          setTimeout(check, 50);
         };
+
         check();
       });
     }
 
     const { ScramjetController } = $scramjetLoadController();
-    
-    try {
-      const controller = new ScramjetController({
-        prefix: basePath + "scramjet/",
-        files: {
-          wasm: "https://cdn.jsdelivr.net/gh/Destroyed12121/Staticsj@main/JS/scramjet.wasm.wasm",
-          all: "https://cdn.jsdelivr.net/gh/Destroyed12121/Staticsj@main/JS/scramjet.all.js",
-          sync: "https://cdn.jsdelivr.net/gh/Destroyed12121/Staticsj@main/JS/scramjet.sync.js"
-        }
-      });
-      
-      await controller.init();
-      sharedScramjet = controller;
-      return controller;
-    } catch (err) {
-      console.error('Scramjet init error:', err);
-      throw err;
-    }
+
+    const controller = new ScramjetController({
+      prefix: basePath + "scramjet/",
+      files: {
+        wasm: "https://cdn.jsdelivr.net/gh/Destroyed12121/Staticsj@main/JS/scramjet.wasm.wasm",
+        all: "https://cdn.jsdelivr.net/gh/Destroyed12121/Staticsj@main/JS/scramjet.all.js",
+        sync: "https://cdn.jsdelivr.net/gh/Destroyed12121/Staticsj@main/JS/scramjet.sync.js"
+      }
+    });
+
+    await controller.init();
+
+    sharedScramjet = controller;
+    return controller;
+  };
+
+  window.proxy.getDefaultWisp = function() {
+    return DEFAULT_WISP;
+  };
+
+  window.proxy.getWispServers = function() {
+    return WISP_SERVERS;
   };
 })();
