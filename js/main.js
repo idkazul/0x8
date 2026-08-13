@@ -1,5 +1,10 @@
 (function() {
     let loaded = false;
+    let bareConnection = null;
+    let reconnectAttempts = 0;
+    const MAX_RECONNECT_ATTEMPTS = 5;
+    let heartbeatInterval = null;
+    let isReconnecting = false;
 
     async function ensureScramjetDB() {
         try {
@@ -17,6 +22,84 @@
             });
             return false;
         }
+    }
+
+    async function createBareMuxConnection(basePath, wispUrl) {
+        try {
+            console.log('Creating BareMux connection...');
+            const connection = new BareMux.BareMuxConnection(basePath + "bareworker.js");
+            await connection.setTransport(
+                "https://cdn.jsdelivr.net/npm/@mercuryworkshop/epoxy-transport@2.1.28/dist/index.mjs",
+                [{ wisp: wispUrl }]
+            );
+            console.log('BareMux transport set.');
+            const port = await connection.getInnerPort();
+            console.log('Port obtained.');
+            return { connection, port };
+        } catch (err) {
+            console.error('BareMux connection creation failed:', err);
+            throw err;
+        }
+    }
+
+    async function sendPortToSW(port) {
+        const reg = await navigator.serviceWorker.ready;
+        const sw = reg.active || navigator.serviceWorker.controller;
+        if (!sw) {
+            console.warn('No SW controller to send port');
+            return;
+        }
+        sw.postMessage({ type: 'baremux-port', port: port }, [port]);
+        console.log('Port sent to SW');
+    }
+
+    async function reconnectBareMux(basePath, wispUrl) {
+        if (isReconnecting) return;
+        isReconnecting = true;
+
+        if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+            console.error('Max reconnect attempts reached.');
+            window.utils.notify('error', 'Proxy Error', 'Could not reconnect to proxy. Please refresh.');
+            isReconnecting = false;
+            return;
+        }
+        reconnectAttempts++;
+        console.log(`Reconnecting BareMux (attempt ${reconnectAttempts})...`);
+
+        try {
+            const { connection, port } = await createBareMuxConnection(basePath, wispUrl);
+            bareConnection = connection;
+            await sendPortToSW(port);
+            window._barePort = port;
+            reconnectAttempts = 0;
+            isReconnecting = false;
+            window.utils.notify('info', 'Proxy Reconnected', 'Proxy connection restored.');
+        } catch (err) {
+            console.error('Reconnection failed:', err);
+            isReconnecting = false;
+            setTimeout(() => reconnectBareMux(basePath, wispUrl), 3000);
+        }
+    }
+
+    async function startHeartbeat(basePath, wispUrl) {
+        if (heartbeatInterval) {
+            clearInterval(heartbeatInterval);
+        }
+
+        heartbeatInterval = setInterval(async () => {
+            try {
+                if (!bareConnection) {
+                    console.warn('No bareConnection, attempting reconnect...');
+                    await reconnectBareMux(basePath, wispUrl);
+                    return;
+                }
+                await bareConnection.worker.sendMessage({ type: 'ping' });
+                reconnectAttempts = 0;
+            } catch (err) {
+                console.warn('Heartbeat ping failed, attempting reconnect...');
+                await reconnectBareMux(basePath, wispUrl);
+            }
+        }, 15000); // Ping every 15 seconds
     }
 
     async function init() {
@@ -51,18 +134,15 @@
                 setTimeout(sendConfig, 500);
                 setTimeout(sendConfig, 1500);
 
+                // Create initial BareMux connection
                 try {
-                    const connection = new BareMux.BareMuxConnection(basePath + "bareworker.js");
-                    await connection.setTransport(
-                        "https://cdn.jsdelivr.net/npm/@mercuryworkshop/epoxy-transport@2.1.28/dist/index.mjs",
-                        [{ wisp: wispUrl }]
-                    );
-                    const port = await connection.getInnerPort();
-                    const sw = reg.active || navigator.serviceWorker.controller;
-                    if (sw) {
-                        sw.postMessage({ type: 'baremux-port', port: port }, [port]);
-                        console.log('Port sent to SW');
-                    }
+                    const { connection, port } = await createBareMuxConnection(basePath, wispUrl);
+                    bareConnection = connection;
+                    await sendPortToSW(port);
+                    window._barePort = port;
+
+                    // Start heartbeat to keep connection alive
+                    await startHeartbeat(basePath, wispUrl);
                 } catch (err) {
                     console.warn('BareMux connection error:', err);
                     window.utils.notify('warning', 'Proxy Connection', 'Could not connect to proxy. Some features may not work.');
@@ -74,13 +154,13 @@
             }
         }
 
+        // Initialize Scramjet
         try {
             const scramjet = await window.proxy.getSharedScramjet();
             window.tabs.init(scramjet);
         } catch (err) {
             console.error('Scramjet init error:', err);
             window.utils.notify('error', 'Proxy Error', 'Scramjet failed to initialize. Some features may not work.');
-
             window.tabs.create(true);
         }
 
@@ -88,6 +168,7 @@
             window.tabs.create(true);
         }
 
+        // UI bindings (unchanged)
         document.getElementById('backBtn').onclick = () => {
             const tab = window.tabs.getActive();
             if (tab) tab.frame.back();
@@ -178,6 +259,7 @@
             }
         });
 
+        // Hide loading screen
         const ls = document.getElementById('loading-screen');
         ls.classList.add('hidden');
         const app = document.getElementById('app');
