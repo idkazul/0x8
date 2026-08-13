@@ -1,6 +1,6 @@
 # 0x8!
 
-![0x8](imgs/logo.png)
+<img src="imgs/logo.png" alt="0x8" width="300">
 
 **0x8** is your simple web proxy service!
 
