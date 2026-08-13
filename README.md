@@ -4,9 +4,8 @@
 
 ![Archived](https://img.shields.io/badge/status-archived-orange.svg)
 
-> ⚠️ **Archived**
->
-> this is broken 
+> **Archived**
+I couldnt seem to find a fix for this so unfortunately it is broken :/
 
 **0x8** is your simple web proxy service!
 
