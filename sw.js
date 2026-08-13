@@ -53,32 +53,44 @@ const ADBLOCK = {
 
 function isAdBlocked(url) {
     const urlStr = url.toString();
+
     for (const pattern of ADBLOCK.blocked) {
         let regexPattern = pattern
             .replace(/\*/g, '.*')
             .replace(/\./g, '\\.')
             .replace(/\?/g, '\\?');
+
         const regex = new RegExp('^' + regexPattern + '$', 'i');
+
         if (regex.test(urlStr)) {
             return true;
         }
     }
+
     return false;
 }
 
 const swPath = self.location.pathname;
 const basePath = swPath.substring(0, swPath.lastIndexOf('/') + 1);
+
 self.basePath = self.basePath || basePath;
 
 importScripts(
     "https://cdn.jsdelivr.net/gh/Destroyed12121/Staticsj@main/JS/scramjet.all.js",
-    "https://cdn.jsdelivr.net/npm/@mercuryworkshop/bare-mux/dist/index.js"
+    "https://cdn.jsdelivr.net/npm/@mercuryworkshop/bare-mux@2.1.7/dist/index.js"
 );
 
-const { ScramjetServiceWorker } = $scramjetLoadWorker();
-const scramjet = new ScramjetServiceWorker({
-    prefix: basePath + "scramjet/"
-});
+let scramjet;
+
+try {
+    const { ScramjetServiceWorker } = $scramjetLoadWorker();
+
+    scramjet = new ScramjetServiceWorker({
+        prefix: basePath + "scramjet/"
+    });
+} catch (err) {
+    console.error("SW: Failed to initialize Scramjet:", err);
+}
 
 let wispConfig = {
     wispurl: null,
@@ -89,35 +101,51 @@ let wispConfig = {
 let bareClient = null;
 let connectionReady = false;
 
-self.addEventListener('install', (e) => {
-    e.waitUntil(self.skipWaiting());
+self.addEventListener('install', (event) => {
+    event.waitUntil(self.skipWaiting());
 });
 
-self.addEventListener('activate', (e) => {
-    e.waitUntil(self.clients.claim());
+self.addEventListener('activate', (event) => {
+    event.waitUntil(self.clients.claim());
 });
 
 self.addEventListener('message', ({ data, ports }) => {
+    if (!data) return;
+
     if (data.type === "config") {
         if (data.wispurl) {
             wispConfig.wispurl = data.wispurl;
         }
+
         if (data.servers && data.servers.length > 0) {
             wispConfig.servers = data.servers;
         }
+
         if (typeof data.autoswitch !== 'undefined') {
             wispConfig.autoswitch = data.autoswitch;
         }
-    } else if (data.type === 'baremux-port' && ports.length > 0) {
+
+        return;
+    }
+
+    if (data.type === "baremux-port" && ports.length > 0) {
         const port = ports[0];
+
         try {
             const BareClient = BareMux.BareClient;
+
             bareClient = new BareClient(port);
-            scramjet.client = bareClient;
+
+            if (scramjet) {
+                scramjet.client = bareClient;
+            }
+
             connectionReady = true;
-            console.log('SW: BareClient connected via port');
+
+            console.log("SW: BareClient connected via port");
         } catch (err) {
-            console.error('SW: Failed to set BareClient:', err);
+            connectionReady = false;
+            console.error("SW: Failed to set BareClient:", err);
         }
     }
 });
@@ -125,48 +153,98 @@ self.addEventListener('message', ({ data, ports }) => {
 self.addEventListener("fetch", (event) => {
     event.respondWith((async () => {
         if (isAdBlocked(event.request.url)) {
-            return new Response(new ArrayBuffer(0), { status: 204 });
+            return new Response(new ArrayBuffer(0), {
+                status: 204
+            });
         }
 
-        await scramjet.loadConfig();
+        if (!scramjet) {
+            return fetch(event.request);
+        }
+
+        try {
+            await scramjet.loadConfig();
+        } catch (err) {
+            console.warn("SW: Scramjet config load failed:", err);
+        }
 
         if (connectionReady && scramjet.route(event)) {
-            return scramjet.fetch(event);
+            try {
+                return await scramjet.fetch(event);
+            } catch (err) {
+                console.error("SW: Scramjet fetch failed:", err);
+
+                return new Response(
+                    "Proxy error: " + err.message,
+                    {
+                        status: 502,
+                        headers: {
+                            "Content-Type": "text/plain"
+                        }
+                    }
+                );
+            }
         }
 
         try {
             return await fetch(event.request);
         } catch (err) {
-            console.warn('Fallback fetch failed:', err);
-            return new Response('Network error', { status: 502 });
+            console.warn("SW: Fallback fetch failed:", err);
+
+            return new Response(
+                "Network error",
+                {
+                    status: 502
+                }
+            );
         }
     })());
 });
 
-scramjet.addEventListener("request", async (e) => {
-    e.response = (async () => {
-        if (!wispConfig.wispurl) {
-            return new Response("Wisp URL not configured", { status: 500 });
-        }
+if (scramjet) {
+    scramjet.addEventListener("request", async (event) => {
+        event.response = (async () => {
+            if (!wispConfig.wispurl) {
+                return new Response(
+                    "Wisp URL not configured",
+                    {
+                        status: 500
+                    }
+                );
+            }
 
-        if (!connectionReady || !bareClient) {
-            return new Response("BareMux client not ready", { status: 503 });
-        }
+            if (!connectionReady || !bareClient) {
+                return new Response(
+                    "BareMux client not ready",
+                    {
+                        status: 503
+                    }
+                );
+            }
 
-        try {
-            return await bareClient.fetch(e.url, {
-                method: e.method,
-                body: e.body,
-                headers: e.requestHeaders,
-                credentials: "include",
-                mode: e.mode === "cors" ? e.mode : "same-origin",
-                cache: e.cache,
-                redirect: "manual",
-                duplex: "half",
-            });
-        } catch (err) {
-            console.error("Scramjet fetch error:", err);
-            return new Response("Proxy error: " + err.message, { status: 502 });
-        }
-    })();
-});
+            try {
+                return await bareClient.fetch(event.url, {
+                    method: event.method,
+                    body: event.body,
+                    headers: event.requestHeaders,
+                    credentials: "include",
+                    mode: event.mode === "cors"
+                        ? event.mode
+                        : "same-origin",
+                    cache: event.cache,
+                    redirect: "manual",
+                    duplex: "half"
+                });
+            } catch (err) {
+                console.error("SW: Scramjet request failed:", err);
+
+                return new Response(
+                    "Proxy error: " + err.message,
+                    {
+                        status: 502
+                    }
+                );
+            }
+        })();
+    });
+}
